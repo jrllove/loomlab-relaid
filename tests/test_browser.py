@@ -42,9 +42,11 @@ class BrowserHarnessTests(unittest.TestCase):
         with TemporaryDirectory() as temp_dir:
             profile = Path(temp_dir) / "forge-profile"
             profile.mkdir(mode=0o700)
-            with patch("loomlab.browser.os.geteuid", return_value=os.geteuid() + 1):
-                with self.assertRaisesRegex(PermissionError, "not owned by the effective user"):
-                    prepare_profile_dir(profile)
+            with (
+                patch("loomlab.browser.os.geteuid", return_value=os.geteuid() + 1),
+                self.assertRaisesRegex(PermissionError, "not owned by the effective user"),
+            ):
+                prepare_profile_dir(profile)
 
     def test_ping_handler(self) -> None:
         for body, status, expected in (
