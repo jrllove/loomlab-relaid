@@ -38,8 +38,11 @@ class AppServer:
         else:
             command = ["sudo", "-n", "-u", self.agent.linux_user, "-H", *base]
 
+        agent_home = pwd.getpwnam(self.agent.linux_user).pw_dir
+
         self.process = subprocess.Popen(
             command,
+            cwd=agent_home,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=None,
