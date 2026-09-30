@@ -1,11 +1,13 @@
 """Loopback and optional real-Chromium checks for the browser smoke harness."""
 
+import os
+import unittest
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
+from unittest.mock import patch
 
-from loomlab.browser import EXTENSION_DIR, PingHandler, browser_session
+from loomlab.browser import EXTENSION_DIR, PingHandler, browser_session, prepare_profile_dir
 
 
 class FakeSocket:
@@ -21,6 +23,29 @@ class FakeSocket:
 
 
 class BrowserHarnessTests(unittest.TestCase):
+    def test_new_profile_is_user_only(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            profile = Path(temp_dir) / "forge-profile"
+            self.assertEqual(prepare_profile_dir(profile), profile.resolve())
+            self.assertEqual(profile.stat().st_uid, os.geteuid())
+            self.assertEqual(profile.stat().st_mode & 0o077, 0)
+
+    def test_unsafe_existing_profile_is_rejected(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            profile = Path(temp_dir) / "forge-profile"
+            profile.mkdir()
+            profile.chmod(0o755)
+            with self.assertRaisesRegex(PermissionError, "group or other access"):
+                prepare_profile_dir(profile)
+
+    def test_profile_owned_by_another_user_is_rejected(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            profile = Path(temp_dir) / "forge-profile"
+            profile.mkdir(mode=0o700)
+            with patch("loomlab.browser.os.geteuid", return_value=os.geteuid() + 1):
+                with self.assertRaisesRegex(PermissionError, "not owned by the effective user"):
+                    prepare_profile_dir(profile)
+
     def test_ping_handler(self) -> None:
         for body, status, expected in (
             (b"PING", b"200 OK", b"PONG"),
@@ -45,16 +70,21 @@ class BrowserHarnessTests(unittest.TestCase):
         self.assertTrue((EXTENSION_DIR / "proof.html").is_file())
 
     def test_headless_extension_and_profile_persistence(self) -> None:
+        require_browser = os.environ.get("LOOMLAB_REQUIRE_BROWSER") == "1"
         try:
             from playwright.sync_api import sync_playwright
         except ImportError:
-            self.skipTest("Playwright is not installed; install the browser extra")
+            message = "Playwright is not installed; install the browser extra"
+            if require_browser:
+                self.fail(message)
+            self.skipTest(message)
 
         with sync_playwright() as playwright:
             if not Path(playwright.chromium.executable_path).is_file():
-                self.skipTest(
-                    "Chromium is not installed; run python -m playwright install chromium"
-                )
+                message = "Chromium is not installed; run python -m playwright install chromium"
+                if require_browser:
+                    self.fail(message)
+                self.skipTest(message)
 
         with TemporaryDirectory() as temp_dir:
             profile = Path(temp_dir) / "forge-profile"

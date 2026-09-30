@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import os
+from collections.abc import Iterator
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Event, Thread
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 if TYPE_CHECKING:
@@ -16,6 +18,19 @@ if TYPE_CHECKING:
 
 EXTENSION_DIR = Path(__file__).resolve().parent / "test_extension"
 EXTENSION_NAME = "LoomLab Test Ping"
+
+
+def prepare_profile_dir(profile_dir: Path) -> Path:
+    """Create or validate a user-only Chromium profile directory."""
+
+    profile_dir = profile_dir.expanduser().resolve()
+    profile_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    profile_stat = profile_dir.stat()
+    if profile_stat.st_uid != os.geteuid():
+        raise PermissionError(f"profile directory is not owned by the effective user: {profile_dir}")
+    if profile_stat.st_mode & 0o077:
+        raise PermissionError(f"profile directory allows group or other access: {profile_dir}")
+    return profile_dir
 
 
 class PingHandler(BaseHTTPRequestHandler):
@@ -65,8 +80,7 @@ def browser_session(
 
     from playwright.sync_api import sync_playwright
 
-    profile_dir = profile_dir.expanduser().resolve()
-    profile_dir.mkdir(parents=True, exist_ok=True)
+    profile_dir = prepare_profile_dir(profile_dir)
     extension_dir = EXTENSION_DIR.resolve()
 
     with local_ping_server() as ping_url, sync_playwright() as playwright:
