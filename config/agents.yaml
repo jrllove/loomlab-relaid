@@ -1,0 +1,10 @@
+agents:
+  scribe:
+    display_name: Scribe
+    role: architecture-review-research-coordination
+    codex_thread_id: null
+
+  forge:
+    display_name: Forge
+    role: implementation-testing-repair
+    codex_thread_id: null
