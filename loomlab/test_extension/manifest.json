@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "LoomLab Test Ping",
+  "version": "0.1.0",
+  "description": "Minimal local PING proof for the LoomLab browser harness.",
+  "background": {
+    "service_worker": "worker.js"
+  },
+  "host_permissions": [
+    "http://127.0.0.1/*"
+  ]
+}
