@@ -8,4 +8,5 @@ htmlcov/
 .env
 *.sqlite3
 *.db
+.browser-profiles/
 .DS_Store

@@ -13,6 +13,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+browser = [
+  "playwright>=1.55,<2",
+]
 dev = [
   "pytest>=8.3",
   "ruff>=0.8",
@@ -20,6 +23,7 @@ dev = [
 
 [project.scripts]
 loomlab-smoke = "loomlab.smoke:main"
+loomlab-browser = "loomlab.browser:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
