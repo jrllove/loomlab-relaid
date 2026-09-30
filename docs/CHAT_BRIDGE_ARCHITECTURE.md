@@ -25,6 +25,26 @@ coding service invoked when advantageous, not the default conversational engine.
 7. **Failure should be visible.** Unknown browser states halt and escalate rather
    than triggering heroic recovery loops.
 
+## Architecture review for the first browser proof
+
+The proposed boundaries are appropriately small: LoomLab owns routing, turn
+state, and policy; Electric Sheep supplies persistent context; the browser
+adapter alone interprets ChatGPT page state; Codex remains a separate coding
+service. The first proof should validate these boundaries with Scribe before
+adding Forge, Discord, Electric Sheep integration, or Codex delegation.
+
+| Risky assumption or failure mode | Required behavior for the first proof |
+| --- | --- |
+| A persistent profile stays signed in and on the intended account. Login expiry, account switching, challenges, or navigation can silently change the target. | Confirm the expected seat and conversation before submission. Treat an unverified identity or changed conversation as `browser_state_unknown` and stop. |
+| Page structure and response signals remain stable. A selector change, modal, stalled stream, or tab reload can make completion ambiguous. | Keep page detection inside the adapter. Use bounded waits; report `browser_state_unknown` with a reason when submission or completion cannot be established. |
+| A lost acknowledgement is safe to retry. A message may have reached ChatGPT even when the bridge missed its confirmation. | Allow one in-flight turn per seat. Record whether submission was observed; never resubmit an ambiguous turn automatically. Require inspection before another turn. |
+| Two Linux users automatically isolate browser and bridge state. A shared profile path, native host, or local endpoint could still cross seats. | Run each profile and native host under its seat's Linux user, keep profile files user-only, and allow relay access only to that seat's local bridge. Bind each seat to its expected account and conversation; verify Forge independently after Scribe. |
+| Context and logs are harmless to persist. Retrieved context may contain private text or credentials. | Keep Electric Sheep as the context store. Store only relay correlation and turn status in SQLite; do not log cookies, tokens, full prompts, retrieved context, or response bodies by default. |
+
+`README.md` and `docs/MVP.md` describe the earlier Codex-first bootstrap. This
+document is the proposed Chat bridge direction; its browser proof does not
+change the existing Codex transport or grant new action permissions.
+
 ## Target architecture
 
 ```text
@@ -73,10 +93,9 @@ Preferred stack for the MVP:
 - Python relay
 - SQLite for local state
 
-The browser adapter should translate unstable page details into stable semantic
-events such as:
+The browser adapter accepts `submit_message` as a command and translates
+unstable page details into stable semantic events such as:
 
-- `submit_message`
 - `response_started`
 - `response_delta`
 - `response_complete`
@@ -84,6 +103,15 @@ events such as:
 - `browser_state_unknown`
 
 Only the adapter should know about ChatGPT DOM details.
+`response_delta` can carry message content and is not part of diagnostic logs.
+
+For each seat, the session layer owns the profile path, expected ChatGPT
+account, current conversation reference, and one in-flight turn. The adapter
+reports what it can observe; it does not choose a different account or
+conversation, authorize actions, or retry an uncertain submission. The relay
+assigns a local turn ID before submission and records whether the turn was
+accepted, visibly submitted, completed, or left uncertain. An uncertain turn
+blocks further submissions for that seat until a human inspects the conversation.
 
 ## Identity boundaries
 
@@ -125,6 +153,11 @@ ChatGPT conversation
 Electric Sheep must remain model-independent so the same memory/context layer
 can later support ChatGPT, local models, or other providers.
 
+The session layer assembles retrieved context for a specific turn before
+submitting it. SQLite holds the turn-to-conversation reference and status, not
+a second copy of Electric Sheep memory. The first browser proof uses a simple
+prompt without retrieval; context integration is a later MVP step.
+
 ## Codex delegation
 
 A Chat agent may request specialist coding work through LoomLab. LoomLab then
@@ -144,6 +177,28 @@ results, tests, commits, or review findings to the Chat conversation.
 7. Add Discord input/output.
 8. Insert Electric Sheep context.
 9. Add controlled Chat -> Codex delegation.
+
+### Recommended acceptance checklist for the first Scribe browser proof
+
+- [ ] Launch a persistent Scribe Chromium profile as `jlove`; verify the
+  expected signed-in ChatGPT account before sending a message.
+- [ ] Demonstrate extension-to-local-process PING/PONG through the chosen local
+  bridge, with the bridge accessible only to `jlove`.
+- [ ] Submit one harmless, uniquely identified prompt to a normal ChatGPT
+  conversation and observe one complete reply. Record the local turn ID and
+  conversation reference so the result can be checked in the browser.
+- [ ] Reload the browser or restart the local process, then send a second turn
+  into the same verified conversation without creating a duplicate first turn.
+- [ ] Induce at least one uncertain state (for example, navigate away during a
+  response). Show a bounded timeout or `browser_state_unknown`, no automatic
+  resubmission, and a visible stop requiring human inspection.
+- [ ] Produce local, timestamped records for turn ID, seat, conversation
+  reference, state transitions, completion or failure reason, and elapsed time.
+  Confirm that logs exclude session credentials and message content.
+
+These checks are evidence for the browser proof, not implementation work in
+this review. They require no Discord routing, Electric Sheep retrieval, Forge
+session, or Codex delegation.
 
 ## Non-goals for the first browser proof
 
