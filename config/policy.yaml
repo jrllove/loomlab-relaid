@@ -1,0 +1,32 @@
+defaults:
+  may_edit: true
+  may_test: true
+  may_commit: true
+  may_push: false
+
+pull_requests:
+  may_create: false
+
+merge:
+  allowed: false
+  require_tests: true
+  require_peer_review: true
+  require_clean_tree: true
+
+forbidden:
+  - force_push
+  - delete_repository
+  - modify_secrets
+  - rotate_credentials
+  - rewrite_main_history
+
+ask_human:
+  - ambiguous_requirement
+  - destructive_migration
+  - missing_credentials
+  - failing_existing_tests
+  - merge_conflict
+  - security_sensitive_change
+
+limits:
+  reviewer_round_trips: 5
