@@ -35,14 +35,25 @@ class AppServer:
         base = [self.agent.codex_path, "app-server", "--listen", "stdio://"]
         if self.agent.linux_user == current_user:
             command = base
+            cwd = pwd.getpwnam(self.agent.linux_user).pw_dir
         else:
-            command = ["sudo", "-n", "-u", self.agent.linux_user, "-H", *base]
-
-        agent_home = pwd.getpwnam(self.agent.linux_user).pw_dir
+            command = [
+                "sudo",
+                "-n",
+                "-u",
+                self.agent.linux_user,
+                "-H",
+                "sh",
+                "-lc",
+                "cd \"$HOME\" && exec \"$1\" app-server --listen stdio://",
+                "sh",
+                self.agent.codex_path,
+            ]
+            cwd = None
 
         self.process = subprocess.Popen(
             command,
-            cwd=agent_home,
+            cwd=cwd,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=None,
