@@ -2,9 +2,13 @@ agents:
   scribe:
     display_name: Scribe
     role: architecture-review-research-coordination
+    linux_user: jlove
+    codex_path: /home/jlove/.local/bin/codex
     codex_thread_id: null
 
   forge:
     display_name: Forge
     role: implementation-testing-repair
+    linux_user: forge
+    codex_path: /home/forge/.npm-global/bin/codex
     codex_thread_id: null
