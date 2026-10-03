@@ -1,12 +1,18 @@
 {
   "manifest_version": 3,
   "name": "LoomLab Test Ping",
-  "version": "0.1.0",
-  "description": "Minimal local PING proof for the LoomLab browser harness.",
+  "version": "0.2.0",
+  "description": "Local PING and read-only ChatGPT page observation for LoomLab.",
   "background": {
     "service_worker": "worker.js"
   },
+  "permissions": ["tabs"],
   "host_permissions": [
     "http://127.0.0.1/*"
-  ]
+  ],
+  "content_scripts": [{
+    "matches": ["https://chatgpt.com/*"],
+    "js": ["observer.js"],
+    "run_at": "document_idle"
+  }]
 }

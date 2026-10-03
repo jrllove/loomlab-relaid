@@ -29,7 +29,7 @@ Scribe    Forge
 
 Bootstrap phase. Discord and Codex app-server integrations are intentionally not wired yet.
 
-## Browser extension smoke proof on Hearthdaemon
+## Browser extension proofs on Hearthdaemon
 
 Run as the `forge` Linux user from this checkout:
 
@@ -49,6 +49,34 @@ keeps the browser open until Ctrl-C. The user-data directory survives restarts;
 give each agent a different directory and run it as that agent's Linux user. Pass
 `--headed` to show the browser when a desktop session is available.
 
-For the browser integration test, install `.[dev,browser]` instead and run
-`pytest -q tests/test_browser.py` after installing Chromium. This proof opens only
-the extension's own page. Neither the launcher nor the test accesses ChatGPT.
+### Read-only ChatGPT observation with the persistent Scribe profile
+
+Run this in a checkout with the browser extra installed, as the `jlove` Linux
+user on Hearthdaemon. Set `SCRIBE_PROFILE_DIR` to the **existing** Scribe Chromium
+user-data directory; it must be owned by `jlove` and inaccessible to other users.
+The observer rejects a missing profile path. Close any other Chromium process
+using that profile first.
+
+```bash
+SCRIBE_PROFILE_DIR=/absolute/path/to/existing/scribe-chromium
+.venv/bin/python -m loomlab.browser --agent scribe --profile-dir "$SCRIBE_PROFILE_DIR" --observe --open-url https://chatgpt.com/
+```
+
+`--open-url` opens the normal ChatGPT home page in a new active tab; it does not
+submit a message. To observe an existing conversation, replace the URL with its
+normal `https://chatgpt.com/c/...` URL. The command performs the existing local
+PING/PONG check, takes two read-only page samples, prints one JSON observation,
+and exits. It reports `ready` when a visible profile control and composer are
+present, `streaming` when a visible stop control is also present, and
+`browser_state_unknown` for missing, conflicting, or changing signals. A composer
+alone does not establish authentication because [ChatGPT permits guest
+use](https://help.openai.com/en/articles/9125172-the-chatgpt-home-page). The
+conversation URL excludes query parameters and fragments; the observer never
+exports prompt or response text,
+cookies, or auth tokens. `authenticated: true` is a UI observation, not a check
+that this is the intended Scribe account.
+
+For focused tests, install `.[dev,browser]`, install Chromium, and run
+`pytest -q tests/test_browser.py`. The Chromium test intercepts a synthetic
+ChatGPT page; it does not sign in to a real account. The JavaScript observer
+tests also run through Node.js when available.
